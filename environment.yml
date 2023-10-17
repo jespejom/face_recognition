@@ -1,0 +1,16 @@
+name: lab_rob
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.16
+  - pybullet
+  - pip
+  - pip:
+      - numpy==1.19.5
+      - pandas==2.0.3
+      - scipy==1.10.0
+      - pyserial==3.5
+      - opencv-contrib-python==4.8.0.76
+      - retinaface==1.1.1
+      - datetime==5.2
+      - deepface==0.0.68
