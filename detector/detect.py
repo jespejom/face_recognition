@@ -9,6 +9,7 @@ import cv2
 from models.retinaface import RetinaFace
 from utils.box_utils import decode, decode_landm
 import time
+import os 
 from utils.align_trans import warp_and_crop_face, get_reference_facial_points
 from PIL import Image
 def check_keys(model, pretrained_state_dict):
@@ -62,8 +63,10 @@ class FaceDetector():
         self.keep_top_k = keep_top_k
         self.nms_threshold = nms_threshold
         self.vis_thres = vis_thres
+        self.detections = None
         
     def detect(self, img_raw):
+        self.img = img_raw
         img = np.float32(img_raw)
         im_height, im_width, _ = img.shape
         scale = torch.Tensor([img.shape[1], img.shape[0], img.shape[1], img.shape[0]])
@@ -114,42 +117,39 @@ class FaceDetector():
         dets = dets[:self.keep_top_k, :]
         landms = landms[:self.keep_top_k, :]
         dets = np.concatenate((dets, landms), axis=1)
-        
+        self.detections = dets
         return dets
     
-    def save_faces(self, detections, img_raw):
-        path_faces = []
+    def cut_faces(self, save_face = False):
         imgs_faces = []
-        for id, b in enumerate(detections):
-            #print(b)
+        path_faces = []
+        if self.detections is None:
+            raise Exception('No detections found')
+
+        for id, b in enumerate(self.detections):
             if b[4] < self.vis_thres:
                 continue
-            face = self.align(img_raw, b[5:])
-            #b = list(map(int, b))
 
-            #face = img_raw[b[1]:b[3], b[0]:b[2]]
-
-            name = f"data/unclassified/face{str(id).zfill(2)}.jpg"
-            path_faces.append(name)
+            face = self.align(self.img, b[5:])
             imgs_faces.append(np.asarray(face))
-            # save face
-            cv2.imwrite(name, np.asarray(face))
+            if save_face:
+                folder = f'data/id{str(id).zfill(2)}/'
+                try:  
+                    os.mkdir(folder)  
+                except:
+                    pass  
+                name = f"{folder}face{str(id).zfill(2)}.jpg"
+                path_faces.append(name)
+                cv2.imwrite(name, np.asarray(face))
+        self.faces  = np.array(imgs_faces)
 
-        return np.array(imgs_faces)
-
-    def detect_and_savefaces(self, img_raw, save_frame = False):
-        dets = self.detect(img_raw)
-        imgs_faces  = self.save_faces(dets, img_raw)
-
-        if save_frame:
-            for b in dets:
-                if b[4] < self.vis_thres:
-                    continue
-                b = list(map(int, b))
-                cv2.rectangle(img_raw, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
-            cv2.imwrite('data/last_detection.jpg', img_raw)
-
-        return imgs_faces
+    def save_frame(self):
+        if self.detections is None:
+            raise Exception('No detections found')
+        for b in self.detections:
+            b = list(map(int, b))
+            cv2.rectangle(self.img, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
+        cv2.imwrite('data/last_detection.jpg', img_raw)
 
     def prepare_model(self, cfg):
         torch.set_grad_enabled(False)
@@ -161,17 +161,19 @@ class FaceDetector():
         return net
 
     def align(self, img, landmarks):
-        
         facial5points = [[int(landmarks[2*j]),int(landmarks[2*j+1])] for j in range(5)]
         warped_face = warp_and_crop_face(np.array(img), facial5points, crop_size=(112,112))
         return Image.fromarray(warped_face)
     
 if __name__ == '__main__':
     detector = FaceDetector(keep_top_k = 3)
-    img = cv2.imread('./data/test.jpg', cv2.IMREAD_COLOR)
+    img = cv2.imread('./data/id1_2.jfif', cv2.IMREAD_COLOR)
     if img is None:
         print('read error')
         exit(1)
-    imgs_faces = detector.detect_and_savefaces(img, save_frame = False)
-    print(imgs_faces)
+    detector.detect(img)
+    detector.cut_faces(save_face = True)
+    for face in detector.faces:
+        cv2.imshow('face Capture', face)
+        cv2.waitKey(0)
     #print('Done')
