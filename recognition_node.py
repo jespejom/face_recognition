@@ -1,4 +1,5 @@
 #!/usr/bin/env python3.9
+
 import rospy
 import time
 import hardcoded_bridge as wtf
@@ -8,7 +9,7 @@ from msg.StringArray import StringArray
 
 from sensor_msgs.msg import Image
 from recognizer.config import get_config
-from recognizer.face_recognizer import FaceRecognizer
+from recognizer.recognize import FaceRecognizer
 from PIL import Image
 
 class face_recognition_node():
