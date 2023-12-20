@@ -2,37 +2,35 @@
 import rospy
 import time
 import hardcoded_bridge as wtf
-from facedetector import FaceDetector
+from detector import FaceDetector
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
+from msg.ImageArray import ImageArray
 
 class face_detector_node():
     def __init__(self):
         self.subscriber = rospy.Subscriber('/maqui/camera/front/image_raw', Image, self._callback)
-        self.publisher = rospy.Publisher('/maqui/interactions/face_detection', Image, queue_size=10, latch=True)
-        self.face_detector = FaceDetector()
+        self.publisher = rospy.Publisher('/maqui/interactions/face_detection', ImageArray, queue_size=10, latch=True)
+        self.face_detector = FaceDetector(keep_top_k = 3)
 
     def _callback(self, data):
         
         cv_image = wtf.imgmsg_to_cv2(data)
+        face_detector.detect(cv_image)
+        face_detector.cut_faces(save_face = True)
 
-        face = self.face_detector.get_proba(cv_image)
-        output = Image()
-        
+        output = ImageArray()
+        output.header.stamp = rospy.Time.now()
         try:
-            if face is not None:
-                output.data = self.br.cv2_to_imgmsg(face)
-                print(f'Sending face image')
-                self.publisher.publish(output)
-                time.sleep(5)
-            else:
-                pass
-
+            for face in face_detector.faces:
+                imgmsg = wtf.cv2_to_imgmsg(face)
+                output.data.append(imgmsg)
+            print(f'Sending face image')
+            self.publisher.publish(output)
+            time.sleep(5)
         except:
             with Exception as e:
                 print(e)
-
+        
 def main():
     rospy.init_node('face_detector_node')
     face_detector_node()

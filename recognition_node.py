@@ -2,33 +2,36 @@
 import rospy
 import time
 import hardcoded_bridge as wtf
-from facerecognizer import FaceRecognizer
 from std_msgs.msg import String
+from msg.ImageArray import ImageArray
+from msg.StringArray import StringArray
+
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
+from recognizer.config import get_config
+from recognizer.face_recognizer import FaceRecognizer
+from PIL import Image
 
 class face_recognition_node():
     def __init__(self):
-        self.subscriber = rospy.Subscriber('/maqui/interactions/face_detection', Image, self._callback)
+        self.subscriber = rospy.Subscriber('/maqui/interactions/face_detection', ImageArray, self._callback)
         self.publisher = rospy.Publisher('/maqui/interactions/face_recognition', Image, queue_size=10, latch=True)
-        self.face_recognizer = FaceRecognizer()
+        
+        conf = get_config(training = False, mobile = True)
+        self.face_recognizer = FaceRecognizer(conf)
 
     def _callback(self, data):
-        
-        cv_image = wtf.imgmsg_to_cv2(data)
-
-        face = self.face_detector.get_proba(cv_image)
-        output = Image()
-        
+        cv_images = [wtf.imgmsg_to_cv2(image_msg) for image_msg in data.image_list]
+        names = self.face_recognizer.recognize_faces(cv_images)
+        output = StringArray()
+        output.header.stamp = rospy.Time.now()
         try:
-            if face is not None:
-                output.data = self.br.cv2_to_imgmsg(face)
-                print(f'Sending face image')
-                self.publisher.publish(output)
-                time.sleep(5)
-            else:
-                pass
-
+            for name in names:
+                name = String()
+                output.data.append(name)
+            
+            print(f'Sending name of recognized person')
+            self.publisher.publish(output)
+            time.sleep(5)
         except:
             with Exception as e:
                 print(e)

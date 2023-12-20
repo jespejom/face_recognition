@@ -68,11 +68,13 @@ class FaceRecognizer(object):
         return min_idx, minimum     
 
     def recognize_faces(self, faces):
-    
+        recog_names = []
         results, score = self.infer(conf, faces, tta=False)
         for idx, res in enumerate(results):
             name = self.names[results[idx] + 1]
+            recog_names.append(name)
             print(name)
+        return recog_names
 
 if __name__ == '__main__':
     conf = get_config(training = False, mobile = True)
@@ -81,4 +83,5 @@ if __name__ == '__main__':
     if img is None:
         print('read error')
         exit(1)
-    recognizer.recognize_faces([img])
+    names = recognizer.recognize_faces([img])
+    
