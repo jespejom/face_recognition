@@ -1,17 +1,20 @@
+#!/usr/bin/env python3.9
 from __future__ import print_function
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
-from config import cfg_mnet
-from layers.functions.prior_box import PriorBox
-from utils.nms.py_cpu_nms import py_cpu_nms
+
+from detector.layers.functions.prior_box import PriorBox
+from detector.utils.nms.py_cpu_nms import py_cpu_nms
 import cv2
-from models.retinaface import RetinaFace
-from utils.box_utils import decode, decode_landm
+from detector.models.retinaface import RetinaFace
+from detector.utils.box_utils import decode, decode_landm
 import time
 import os 
-from utils.align_trans import warp_and_crop_face, get_reference_facial_points
+from detector.utils.align_trans import warp_and_crop_face, get_reference_facial_points
 from PIL import Image
+from detector.config.config import cfg_mnet
+
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
     model_keys = set(model.state_dict().keys())
@@ -133,12 +136,12 @@ class FaceDetector():
             face = self.align(self.img, b[5:])
             imgs_faces.append(np.asarray(face))
             if save_face:
-                folder = f'data/id{str(id).zfill(2)}/'
+                folder = f'data/'
                 try:  
                     os.mkdir(folder)  
                 except:
                     pass  
-                name = f"{folder}face{str(id).zfill(2)}.jpg"
+                name = f"{folder}{time.time()}.jpg"
                 path_faces.append(name)
                 cv2.imwrite(name, np.asarray(face))
         self.faces  = np.array(imgs_faces)
@@ -149,7 +152,7 @@ class FaceDetector():
         for b in self.detections:
             b = list(map(int, b))
             cv2.rectangle(self.img, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
-        cv2.imwrite('data/last_detection.jpg', img_raw)
+        cv2.imwrite('data/last_detection.jpg', self.img)
 
     def prepare_model(self, cfg):
         torch.set_grad_enabled(False)
@@ -172,7 +175,7 @@ if __name__ == '__main__':
         print('read error')
         exit(1)
     detector.detect(img)
-    detector.cut_faces(save_face = True)
+    detector.cut_faces()
     for face in detector.faces:
         cv2.imshow('face Capture', face)
         cv2.waitKey(0)

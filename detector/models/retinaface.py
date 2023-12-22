@@ -4,9 +4,9 @@ import torchvision.models._utils as _utils
 import torch.nn.functional as F
 from collections import OrderedDict
 
-from models.net import MobileNetV1 as MobileNetV1
-from models.net import FPN as FPN
-from models.net import SSH as SSH
+from detector.models.net import MobileNetV1 as MobileNetV1
+from detector.models.net import FPN as FPN
+from detector.models.net import SSH as SSH
 
 class ClassHead(nn.Module):
     def __init__(self,inchannels=512,num_anchors=3):

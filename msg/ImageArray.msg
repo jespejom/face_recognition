@@ -1,3 +1,3 @@
 # ImageArray.msg
 Header header
-sensor_msgs/Images[] data
+sensor_msgs/Image[] data

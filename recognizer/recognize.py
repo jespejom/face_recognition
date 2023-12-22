@@ -1,22 +1,16 @@
-from data.data_pipe import de_preprocess, get_train_loader, get_val_data
-from model import Backbone, Arcface, MobileFaceNet, Am_softmax, l2_norm
+from recognizer.model import Backbone, Arcface, MobileFaceNet, Am_softmax, l2_norm
 import torch
-from torch import optim
-import numpy as np
-from tqdm import tqdm
 #from tensorboardX import SummaryWriter
 from matplotlib import pyplot as plt
 plt.switch_backend('agg')
-from utils import get_time, gen_plot, hflip_batch, separate_bn_paras
 from PIL import Image
 from torchvision import transforms as trans
-import math
-from utils import load_facebank, draw_box_name, prepare_facebank
-from config import get_config
+from recognizer.utils import load_facebank, prepare_facebank
+from recognizer.config import get_config
 
 class FaceRecognizer(object):
     def __init__(self, conf, update_fb = True):
-
+        self.conf = conf
         if conf.use_mobilfacenet:
             self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
             print('MobileFaceNet model generated')
@@ -43,13 +37,14 @@ class FaceRecognizer(object):
             self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
             self.optimizer.load_state_dict(torch.load(save_path/'optimizer_{}'.format(fixed_str)))
     
-    def infer(self, conf, faces, tta=False):
+    def infer(self, faces, tta=False):
         '''
         faces : list of PIL Image
         target_embs : [n, 512] computed embeddings of faces in facebank
         names : recorded names of faces in facebank
         tta : test time augmentation (hfilp, that's all)
         '''
+        conf = self.conf
         embs = []
         for img in faces:
             if tta:
@@ -64,16 +59,20 @@ class FaceRecognizer(object):
         diff = source_embs.unsqueeze(-1) - self.targets.transpose(1,0).unsqueeze(0)
         dist = torch.sum(torch.pow(diff, 2), dim=1)
         minimum, min_idx = torch.min(dist, dim=1)
+        print('th', self.threshold, minimum)
         min_idx[minimum > self.threshold] = -1 # if no match, set idx to -1
         return min_idx, minimum     
 
     def recognize_faces(self, faces):
         recog_names = []
-        results, score = self.infer(conf, faces, tta=False)
-        for idx, res in enumerate(results):
+        if faces == []:
+            return recog_names
+        
+        results, _ = self.infer(faces)
+        for idx, _ in enumerate(results):
             name = self.names[results[idx] + 1]
             recog_names.append(name)
-            print(name)
+        print(recog_names)
         return recog_names
 
 if __name__ == '__main__':

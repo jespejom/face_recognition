@@ -1,4 +1,4 @@
-# config.py
+#!/usr/bin/env python3.9
 
 cfg_mnet = {
     'name': 'mobilenet0.25',

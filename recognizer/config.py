@@ -30,7 +30,7 @@ def get_config(training = True, mobile = False):
     conf.batch_size = 200 # mobilefacenet
 #--------------------Inference Config ------------------------
     conf.facebank_path = conf.data_path/'facebank'
-    conf.threshold = 1.5
+    conf.threshold = 0.5
     conf.face_limit = 10 
     #when inference, at maximum detect 10 faces in one image, my laptop is slow
     conf.min_face_size = 30 

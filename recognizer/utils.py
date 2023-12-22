@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 plt.switch_backend('agg')
 import io
 from torchvision import transforms as trans
-from data.data_pipe import de_preprocess
+from recognizer.data.data_pipe import de_preprocess
 import torch
-from model import l2_norm
-import pdb
+from recognizer.model import l2_norm
 import cv2
 
 # Ojala no usar las siguientes líneas
