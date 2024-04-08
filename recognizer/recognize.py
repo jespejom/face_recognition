@@ -26,6 +26,7 @@ class FaceRecognizer(object):
         else:
             self.targets, self.names = load_facebank(conf)
             print('facebank loaded')
+        print(self.names)
 
     def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False):
         if from_save_folder:
@@ -47,6 +48,7 @@ class FaceRecognizer(object):
         conf = self.conf
         embs = []
         for img in faces:
+            assert img.shape == (112, 112, 3), 'image shape is {}, not 112x112x3'.format(img.shape)
             if tta:
                 mirror = trans.functional.hflip(img)
                 emb = self.model(conf.test_transform(img).to(conf.device).unsqueeze(0))
@@ -55,9 +57,11 @@ class FaceRecognizer(object):
             else:                        
                 embs.append(self.model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
         source_embs = torch.cat(embs)
-        
         diff = source_embs.unsqueeze(-1) - self.targets.transpose(1,0).unsqueeze(0)
+        print('diff', diff.shape)
         dist = torch.sum(torch.pow(diff, 2), dim=1)
+        print('dist', dist.shape)
+        print(dist)
         minimum, min_idx = torch.min(dist, dim=1)
         print('th', self.threshold, minimum)
         min_idx[minimum > self.threshold] = -1 # if no match, set idx to -1
@@ -69,6 +73,7 @@ class FaceRecognizer(object):
             return recog_names
         
         results, _ = self.infer(faces)
+        print(results.shape)
         for idx, _ in enumerate(results):
             name = self.names[results[idx] + 1]
             recog_names.append(name)
@@ -78,9 +83,9 @@ class FaceRecognizer(object):
 if __name__ == '__main__':
     conf = get_config(training = False, mobile = True)
     recognizer = FaceRecognizer(conf)
-    img = Image.open('./data/facebank/taylor/face00.jpg')
+    img = Image.open('./data/facebank/img2.jpg')
+    img = Image.open('C:/Users/lesli/OneDrive/Documents/GitHub/face_memory/data/facebank/img2.jpg')
     if img is None:
         print('read error')
         exit(1)
     names = recognizer.recognize_faces([img])
-    

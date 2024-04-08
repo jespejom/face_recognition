@@ -54,7 +54,7 @@ def prepare_facebank(conf, model, tta = True):
                         continue
                     
                     if img.size != (112, 112):
-                        print('Si esto pasa, algo falló')
+                        print('Imagen del facebank de tamaño incorrecto, se tiene tamaño {img.size}')
                         #img = mtcnn.align(img)
                     with torch.no_grad():
                         if tta:
