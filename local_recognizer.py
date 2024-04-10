@@ -16,3 +16,4 @@ if __name__ == '__main__':
     faces = [cv2.cvtColor(face, cv2.COLOR_BGR2RGB) for face in detector.faces]
     
     names = recognizer.recognize_faces(faces)
+    print(names)

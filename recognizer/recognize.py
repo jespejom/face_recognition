@@ -7,6 +7,7 @@ from PIL import Image
 from torchvision import transforms as trans
 from recognizer.utils import load_facebank, prepare_facebank
 from recognizer.config import get_config
+import numpy as np 
 
 class FaceRecognizer(object):
     def __init__(self, conf, update_fb = True):
@@ -57,27 +58,43 @@ class FaceRecognizer(object):
             else:                        
                 embs.append(self.model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
         source_embs = torch.cat(embs)
-        diff = source_embs.unsqueeze(-1) - self.targets.transpose(1,0).unsqueeze(0)
-        print('diff', diff.shape)
-        dist = torch.sum(torch.pow(diff, 2), dim=1)
-        print('dist', dist.shape)
-        print(dist)
-        minimum, min_idx = torch.min(dist, dim=1)
-        print('th', self.threshold, minimum)
-        min_idx[minimum > self.threshold] = -1 # if no match, set idx to -1
-        return min_idx, minimum     
+        diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
+        dist = torch.sum(torch.pow(diff, 2), dim=1) 
+        idx_identification = self.get_identifications(dist.cpu().numpy(), self.threshold)
+        return idx_identification     
+    
+    def get_identifications(self, dist, th):
+        identification = np.full((dist.shape[0],), np.nan)
+        dist[dist > th] = np.nan
+
+        def indices_minimo(matriz):
+            indice_minimo = np.nanargmin(matriz)
+            indice_fila, indice_columna = np.unravel_index(indice_minimo, matriz.shape)
+            return indice_fila, indice_columna
+
+        def replace_x_with_nan(mat, idx):
+            mat[:, idx[1]] = np.nan
+            mat[idx[0], :] = np.nan
+            return mat
+
+        while not np.isnan(dist).all():
+            min_idx = indices_minimo(dist)
+            identification[min_idx[0]] = int(min_idx[1])
+            dist = replace_x_with_nan(dist, min_idx)
+
+        identification = np.nan_to_num(identification, nan = -1)
+        return identification
+
 
     def recognize_faces(self, faces):
         recog_names = []
         if faces == []:
             return recog_names
         
-        results, _ = self.infer(faces)
-        print(results.shape)
+        results = self.infer(faces)
         for idx, _ in enumerate(results):
-            name = self.names[results[idx] + 1]
+            name = self.names[int(results[idx]) + 1]
             recog_names.append(name)
-        print(recog_names)
         return recog_names
 
 if __name__ == '__main__':
@@ -89,3 +106,4 @@ if __name__ == '__main__':
         print('read error')
         exit(1)
     names = recognizer.recognize_faces([img])
+    print(names)
