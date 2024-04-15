@@ -14,6 +14,8 @@ import os
 from detector.utils.align_trans import warp_and_crop_face, get_reference_facial_points
 from PIL import Image
 from detector.config.config import cfg_mnet
+import matplotlib.pyplot as plt
+import math
 
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
@@ -66,7 +68,9 @@ class FaceDetector():
         self.keep_top_k = keep_top_k
         self.nms_threshold = nms_threshold
         self.vis_thres = vis_thres
+
         self.detections = None
+        self.faces = None
         
     def detect(self, img_raw):
         self.img = img_raw
@@ -119,35 +123,76 @@ class FaceDetector():
         # keep top-K faster NMS
         dets = dets[:self.keep_top_k, :]
         landms = landms[:self.keep_top_k, :]
-        dets = np.concatenate((dets, landms), axis=1)
-        self.detections = dets
-        return dets
-    
+
+        self.detections = np.concatenate((dets, landms), axis=1)
+        
+
+    def is_looking(self, landmarks):
+        landmarks = landmarks.astype(int)
+
+        # Check if face is looking at the camera
+        OI = [landmarks[0], landmarks[1]]
+        OD = [landmarks[2], landmarks[3]]
+        N = [landmarks[4], landmarks[5]]
+        
+        dOI_OD = math.sqrt((OD[0] - OI[0])**2 + (OD[1] - OI[1])**2)
+        m = (OD[1] - OI[1]) / (OD[0] - OI[0])
+        b = OI[1] - m * OI[0]
+        if m == 0:
+            m = 0.0001
+        n_m = -1 / m
+        b_perpendicular = N[1] - n_m * N[0]
+        intercept = (b_perpendicular - b) / (m - n_m)
+        y_intersect = m * intercept + b
+
+        #distancia entre OI e intersección
+        dOI = math.sqrt((intercept - OI[0])**2 + (y_intersect - OI[1])**2)
+        dOD = math.sqrt((intercept - OD[0])**2 + (y_intersect - OD[1])**2)
+        
+        porc_OI = (dOI / dOI_OD) * 100
+        porc_OD = (dOD / dOI_OD) * 100
+
+        if porc_OI + porc_OD < 103 and 30 < porc_OD < 70:
+            return True
+        else:
+            return False
+        
+
     def cut_faces(self, save_face = False):
         imgs_faces = []
         path_faces = []
         if self.detections is None:
-            raise Exception('No detections found')
+            self.faces = None
+            return
 
-        for id, b in enumerate(self.detections):
+        for b in self.detections:
             if b[4] < self.vis_thres:
+                continue
+
+            if not self.is_looking(b[5:]):
                 continue
 
             face = self.align(self.img, b[5:])
             imgs_faces.append(np.asarray(face))
-            if save_face:
-                folder = f'data/'
-                try:  
-                    os.mkdir(folder)  
-                except:
-                    pass  
-                name = f"{folder}{time.time()}.jpg"
-                path_faces.append(name)
-                cv2.imwrite(name, np.asarray(face))
+
+        if save_face:
+            self.save_to_path(face)
+
         self.faces  = np.array(imgs_faces)
 
+    def save_to_path(self, face, path = 'data/faces/'):
+        folder = path
+        try:  
+            os.mkdir(folder)  
+        except:
+            pass  
+        name = f"{folder}{time.time()}.jpg"
+        path_faces.append(name)
+        cv2.imwrite(name, np.asarray(face))
+        return True
+
     def save_frame(self):
-        if self.detections is None:
+        if self.faces is None:
             raise Exception('No detections found')
         for b in self.detections:
             b = list(map(int, b))
@@ -170,13 +215,15 @@ class FaceDetector():
     
 if __name__ == '__main__':
     detector = FaceDetector(keep_top_k = 3)
-    img = cv2.imread('./data/id1_2.jfif', cv2.IMREAD_COLOR)
+    img = cv2.imread('./data/img2.jpg', cv2.IMREAD_COLOR)
+
     if img is None:
         print('read error')
         exit(1)
     detector.detect(img)
     detector.cut_faces()
+
     for face in detector.faces:
         cv2.imshow('face Capture', face)
         cv2.waitKey(0)
-    #print('Done')
+        names = recognizer.recognize_faces(faces)

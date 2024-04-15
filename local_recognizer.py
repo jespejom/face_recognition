@@ -1,19 +1,27 @@
 from detector.detect import FaceDetector
 from recognizer.recognize import FaceRecognizer
-from recognizer.config import get_config
 import cv2
+import os
 
 if __name__ == '__main__':
-    conf = get_config(training = False, mobile = True)
-    recognizer = FaceRecognizer(conf)
+    recognizer = FaceRecognizer()
     detector = FaceDetector(keep_top_k = 4)
-    img = cv2.imread('./data/img2.jpg', cv2.IMREAD_COLOR)
-    if img is None:
-        print('read error')
-        exit(1)
-    detector.detect(img)
-    detector.cut_faces()
-    faces = [cv2.cvtColor(face, cv2.COLOR_BGR2RGB) for face in detector.faces]
-    
-    names = recognizer.recognize_faces(faces)
-    print(names)
+    #detect faces on camera, opencvqq
+    cap = cv2.VideoCapture(0)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print('read error')
+            break
+        detector.detect(frame)
+        detector.cut_faces()
+        
+        # for face in detector.faces:
+            
+        #     cv2.imshow('face Capture', face)
+        #     cv2.waitKey(1)
+            #num_imgs = len([path for path in os.listdir(dir_path) if '.jpg' in path])
+            #cv2.imwrite('data/facebank/img.jpg', frame)
+        
+        names = recognizer.recognize_faces(detector.faces)
+        print(names)
