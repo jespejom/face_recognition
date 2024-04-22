@@ -8,20 +8,19 @@ if __name__ == '__main__':
     detector = FaceDetector(keep_top_k = 4)
     #detect faces on camera, opencvqq
     cap = cv2.VideoCapture(0)
-    while True:
+    buffer = []
+
+    while len(detector.buffer_faces) < 10:
         ret, frame = cap.read()
         if not ret:
             print('read error')
             break
         detector.detect(frame)
-        detector.cut_faces()
-        
-        # for face in detector.faces:
-            
-        #     cv2.imshow('face Capture', face)
-        #     cv2.waitKey(1)
-            #num_imgs = len([path for path in os.listdir(dir_path) if '.jpg' in path])
-            #cv2.imwrite('data/facebank/img.jpg', frame)
-        
-        names = recognizer.recognize_faces(detector.faces)
-        print(names)
+    buffer = detector.buffer_faces
+
+    for t in range(len(buffer)):
+        faces = [item['face'] for item in buffer[t]]
+        names = recognizer.recognize_faces(faces)
+        for cara in range(len(buffer[t])):
+            buffer[t][cara].update({'name': names[cara]})
+    

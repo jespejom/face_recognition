@@ -70,7 +70,7 @@ class FaceDetector():
         self.vis_thres = vis_thres
 
         self.detections = None
-        self.faces = None
+        self.buffer_faces = []
         
     def detect(self, img_raw):
         self.img = img_raw
@@ -125,7 +125,7 @@ class FaceDetector():
         landms = landms[:self.keep_top_k, :]
 
         self.detections = np.concatenate((dets, landms), axis=1)
-        
+        self.cut_faces()
 
     def is_looking(self, landmarks):
         landmarks = landmarks.astype(int)
@@ -137,9 +137,8 @@ class FaceDetector():
         
         dOI_OD = math.sqrt((OD[0] - OI[0])**2 + (OD[1] - OI[1])**2)
         m = (OD[1] - OI[1]) / (OD[0] - OI[0])
+        m = 0.0001 if m == 0 else m
         b = OI[1] - m * OI[0]
-        if m == 0:
-            m = 0.0001
         n_m = -1 / m
         b_perpendicular = N[1] - n_m * N[0]
         intercept = (b_perpendicular - b) / (m - n_m)
@@ -157,10 +156,9 @@ class FaceDetector():
         else:
             return False
         
+    def cut_faces(self):
+        valid_faces = []
 
-    def cut_faces(self, save_face = False):
-        imgs_faces = []
-        path_faces = []
         if self.detections is None:
             self.faces = None
             return
@@ -171,15 +169,16 @@ class FaceDetector():
 
             if not self.is_looking(b[5:]):
                 continue
-
+            
             face = self.align(self.img, b[5:])
-            imgs_faces.append(np.asarray(face))
+            position_face = b[:4].astype(int)
 
-        if save_face:
-            self.save_to_path(face)
-
-        self.faces  = np.array(imgs_faces)
-
+            valid_face = {'pos': position_face, 'face': face}
+            valid_faces.append(valid_face)
+        
+        self.buffer_faces.append(valid_faces)
+        
+        
     def save_to_path(self, face, path = 'data/faces/'):
         folder = path
         try:  

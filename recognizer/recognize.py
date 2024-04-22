@@ -14,31 +14,31 @@ from torch.nn import CrossEntropyLoss
 
 class FaceRecognizer(object):
     def __init__(self, update_fb = True):
-        conf = get_config(training = False, mobile = True)
-        self.conf = conf
-        if conf.use_mobilfacenet:
-            self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
+        self.conf = get_config(training = False, mobile = True)
+               
+        if self.conf.use_mobilfacenet:
+            self.model = MobileFaceNet(self.conf.embedding_size).to(self.conf.device)
             print('MobileFaceNet model generated')
         else:
-            self.model = Backbone(conf.net_depth, conf.drop_ratio, conf.net_mode).to(conf.device)
-            print('{}_{} model generated'.format(conf.net_mode, conf.net_depth))
+            self.model = Backbone(self.conf.net_depth, self.conf.drop_ratio, self.conf.net_mode).to(self.conf.device)
+            print('{}_{} model generated'.format(self.conf.net_mode, self.conf.net_depth))
         
-        self.threshold = conf.threshold
+        self.threshold = self.conf.threshold
 
         if update_fb:
-            self.targets, self.names = prepare_facebank(conf, self.model)
+            self.targets, self.names = prepare_facebank(self.conf, self.model)
             print('facebank updated')
         else:
-            self.targets, self.names = load_facebank(conf)
+            self.targets, self.names = load_facebank(self.conf)
             print('facebank loaded')
         
         print(self.names)
 
-    def load_state(self, conf, fixed_str, from_save_folder=False, model_only=False):
+    def load_state(self, fixed_str, from_save_folder=False, model_only=False):
         if from_save_folder:
-            save_path = conf.save_path
+            save_path = self.conf.save_path
         else:
-            save_path = conf.model_path       
+            save_path = self.conf.model_path       
         self.model.load_state_dict(torch.load(save_path/'model_{}'.format(fixed_str), map_location=torch.device('cpu')))
         if not model_only:
             self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
@@ -46,16 +46,13 @@ class FaceRecognizer(object):
     
     def infer(self, faces, tta=False):
         '''
-        faces : list of PIL Image
-        target_embs : [n, 512] computed embeddings of faces in facebank
-        names : recorded names of faces in facebank
-        tta : test time augmentation (hfilp, that's all)
+        faces: list of PIL images
+        tta: test time augmentation
         '''
         conf = self.conf
         embs = []
-        
         for img in faces:
-            assert img.shape == (112, 112, 3), 'image shape is {}, not 112x112x3'.format(img.shape)
+            assert img.size == (112, 112), 'image shape is {}, not 112x112'.format(img.size)
             if tta:
                 mirror = trans.functional.hflip(img)
                 emb = self.model(conf.test_transform(img).to(conf.device).unsqueeze(0))
@@ -63,6 +60,7 @@ class FaceRecognizer(object):
                 embs.append(l2_norm(emb + emb_mirror))
             else:                        
                 embs.append(self.model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
+
         source_embs = torch.cat(embs)
         diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
         dist = torch.sum(torch.pow(diff, 2), dim=1) 
@@ -93,7 +91,7 @@ class FaceRecognizer(object):
 
     def recognize_faces(self, faces):
         recog_names = []
-        if faces.size == 0:
+        if len(faces) == 0:
             print('No faces detected')
             return recog_names
         
@@ -110,7 +108,7 @@ class FaceRecognizer(object):
         conf.model_path = conf.work_path/'models'
         conf.log_path = conf.work_path/'log'
         conf.save_path = conf.work_path/'save'
-        conf.input_size = [112,112]
+        conf.input_size = [112, 112]
         conf.embedding_size = 512
         conf.use_mobilfacenet = mobile
         conf.net_depth = 50
@@ -125,15 +123,12 @@ class FaceRecognizer(object):
         conf.vgg_folder = conf.data_path/'faces_vgg_112x112'
         conf.ms1m_folder = conf.data_path/'faces_ms1m_112x112'
         conf.emore_folder = conf.data_path/'faces_emore'
-        #conf.batch_size = 100 # irse net depth 50 
         conf.batch_size = 200 # mobilefacenet
     #--------------------Inference Config ------------------------
         conf.facebank_path = conf.data_path/'facebank'
         conf.threshold = 0.5
         conf.face_limit = 10 
-        #when inference, at maximum detect 10 faces in one image, my laptop is slow
         conf.min_face_size = 30 
-        # the larger this value, the faster deduction, comes with tradeoff in small faces
         return conf
 
 if __name__ == '__main__':
@@ -145,4 +140,10 @@ if __name__ == '__main__':
         print('read error')
         exit(1)
     names = recognizer.recognize_faces([img])
-    print(names)
+    for name in names:
+        print(name)
+        if name == 'unknown':
+            print('Unknown person')
+
+        else:
+            print('Welcome back, {}'.format(name))
