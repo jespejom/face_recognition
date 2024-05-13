@@ -131,6 +131,20 @@ class FaceRecognizer(object):
         conf.min_face_size = 30 
         return conf
 
+    def save_identities(self, face, name: str):
+        path_folder = self.conf.facebank_path+'/'+name
+        if not os.path.exists(path_folder):
+            os.makedirs(path_folder)
+        if not isinstance(face, np.ndarray):
+            face = face.cpu().detach().numpy()
+        
+        n_files = len([path for path in os.listdir(dir_path) if '.jpg' in path])
+        path_img = dir_path + '/' + name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
+        
+        np.save(path_img, face)
+        # update facebank
+        self.targets, self.names = prepare_facebank(self.conf, self.model)
+        
 if __name__ == '__main__':
     conf = get_config(training = False, mobile = True)
     recognizer = FaceRecognizer(conf)

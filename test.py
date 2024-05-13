@@ -1,5 +1,5 @@
-# import os
-# dir_path = './data/facebank/les/'
+import os
+dir_path = './data/facebank/selena'
 # count = 0
 # # Iterate directory
 # for path in os.listdir(dir_path):
@@ -8,11 +8,8 @@
 # print(count)
 
 # #compact version
-# print(len([path for path in os.listdir(dir_path) if '.jpg' in path]))
-import numpy as np
-a = []
-b = np.array(a)
-
-print(b is None)
-print(b.size)
-print(b.size == 0)
+print(len([path for path in os.listdir(dir_path) if '.jpg' in path]))
+name = 'selena'
+n_files = len([path for path in os.listdir(dir_path) if '.jpg' in path])
+path_img = dir_path + '/' + name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
+print(path_img)

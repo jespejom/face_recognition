@@ -1,2 +1,4 @@
 *.pyc
 *.prototxt
+tablet.py
+test.py
