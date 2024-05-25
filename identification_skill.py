@@ -39,7 +39,7 @@ class IdentificationSkill(RobotSkill):
             raise e
         return True
        
-    def check(self, timeout = 1.0):
+    def check(self):
         return True
 
     def stop(self):
