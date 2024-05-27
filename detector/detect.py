@@ -175,9 +175,7 @@ class FaceDetector():
 
             valid_face = {'pos': position_face, 'face': face}
             valid_faces.append(valid_face)
-        
         self.buffer_faces.append(valid_faces)
-        
         
     def save_to_path(self, face, path = 'data/faces/'):
         folder = path
