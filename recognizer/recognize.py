@@ -11,6 +11,7 @@ import numpy as np
 from easydict import EasyDict as edict
 from pathlib import Path
 from torch.nn import CrossEntropyLoss
+import os
 
 class FaceRecognizer(object):
     def __init__(self, update_fb = True):
@@ -89,7 +90,7 @@ class FaceRecognizer(object):
         identification = np.nan_to_num(identification, nan = -1)
         return identification
 
-    def recognize_faces(self, faces):
+    def recognize_faces(self, faces, by_location=False):
         recog_names = []
         if len(faces) == 0:
             print('No faces detected')
@@ -100,6 +101,10 @@ class FaceRecognizer(object):
             name = self.names[int(results[idx]) + 1]
             recog_names.append(name)
         return recog_names
+
+    
+    def filter_by_location():
+        pass
 
     def get_config(self, training = True, mobile = False):
         conf = edict()
@@ -138,8 +143,8 @@ class FaceRecognizer(object):
         if not isinstance(face, np.ndarray):
             face = face.cpu().detach().numpy()
         
-        n_files = len([path for path in os.listdir(dir_path) if '.jpg' in path])
-        path_img = dir_path + '/' + name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
+        n_files = len([path for path in os.listdir(path_folder) if '.jpg' in path])
+        path_img = path_folder + '/' + name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
         
         np.save(path_img, face)
         # update facebank

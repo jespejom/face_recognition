@@ -1,37 +1,30 @@
 #!/usr/bin/env python3.9
-from __future__ import print_function
+import os
+import time
+import math
+import cv2
+import numpy as np
+from PIL import Image
 import torch
 import torch.backends.cudnn as cudnn
-import numpy as np
+import matplotlib.pyplot as plt
 
 from detector.layers.functions.prior_box import PriorBox
 from detector.utils.nms.py_cpu_nms import py_cpu_nms
-import cv2
 from detector.models.retinaface import RetinaFace
 from detector.utils.box_utils import decode, decode_landm
-import time
-import os 
-from detector.utils.align_trans import warp_and_crop_face, get_reference_facial_points
-from PIL import Image
+from detector.utils.align_trans import warp_and_crop_face
 from detector.config.config import cfg_mnet
-import matplotlib.pyplot as plt
-import math
+
 
 def check_keys(model, pretrained_state_dict):
     ckpt_keys = set(pretrained_state_dict.keys())
     model_keys = set(model.state_dict().keys())
     used_pretrained_keys = model_keys & ckpt_keys
-    # unused_pretrained_keys = ckpt_keys - model_keys
-    # missing_keys = model_keys - ckpt_keys
-    # print('Missing keys:{}'.format(len(missing_keys)))
-    # print('Unused checkpoint keys:{}'.format(len(unused_pretrained_keys)))
-    # print('Used keys:{}'.format(len(used_pretrained_keys)))
     assert len(used_pretrained_keys) > 0, 'load NONE from pretrained checkpoint'
     return True
 
 def remove_prefix(state_dict, prefix):
-    ''' Old style model is stored with all names of parameters sharing common prefix 'module.' '''
-    #print('remove prefix \'{}\''.format(prefix))
     f = lambda x: x.split(prefix, 1)[-1] if x.startswith(prefix) else x
     return {f(key): value for key, value in state_dict.items()}
 
@@ -54,23 +47,24 @@ def load_model(model, pretrained_path, device):
 
 class FaceDetector():
     def __init__(self, 
-                    keep_top_k = 3,
-                    conf_th = 0.02, 
-                    get_landmarks = False,
-                    top_k = 1000,
-                    nms_threshold = 0.4,
-                    vis_thres = 0.6 ):
-        self.device = torch.device("cpu") # if args.cpu else "cuda")
+                 keep_top_k=3,
+                 conf_th=0.02,
+                 get_landmarks=False,
+                 top_k=1000,
+                 nms_threshold=0.4,
+                 vis_thres=0.6,
+                 buff_size=10):
+        self.device = torch.device("cpu")  # if args.cpu else "cuda")
         self.net = self.prepare_model(cfg_mnet).to(self.device)
         self.get_landmarks = get_landmarks
-        self.conf_th = conf_th # confidence_threshold
+        self.conf_th = conf_th
         self.top_k = top_k
         self.keep_top_k = keep_top_k
         self.nms_threshold = nms_threshold
         self.vis_thres = vis_thres
-
         self.detections = None
         self.buffer_faces = []
+        self.buff_size = buff_size
         
     def detect(self, img_raw):
         self.img = img_raw
@@ -125,7 +119,7 @@ class FaceDetector():
         landms = landms[:self.keep_top_k, :]
 
         self.detections = np.concatenate((dets, landms), axis=1)
-        self.cut_faces()
+        
 
     def is_looking(self, landmarks):
         landmarks = landmarks.astype(int)
@@ -156,12 +150,9 @@ class FaceDetector():
         else:
             return False
         
-    def cut_faces(self):
+    def add_data_to_buffer(self):
         valid_faces = []
-
-        if self.detections is None:
-            self.faces = None
-            return
+        assert len(self.detections) > 0, 'No detections found'
 
         for b in self.detections:
             if b[4] < self.vis_thres:
@@ -171,11 +162,14 @@ class FaceDetector():
                 continue
             
             face = self.align(self.img, b[5:])
+            gray_face = face.convert("L")
             position_face = b[:4].astype(int)
 
             valid_face = {'pos': position_face, 'face': face}
             valid_faces.append(valid_face)
+        
         self.buffer_faces.append(valid_faces)
+        
         
     def save_to_path(self, face, path = 'data/faces/'):
         folder = path
@@ -184,14 +178,13 @@ class FaceDetector():
         except:
             pass  
         name = f"{folder}{time.time()}.jpg"
-        path_faces.append(name)
         cv2.imwrite(name, np.asarray(face))
         return True
 
-    def save_frame(self):
-        if self.faces is None:
-            raise Exception('No detections found')
-        for b in self.detections:
+    def save_frame(self, detections):
+        if len(detections) == 0:
+            print('No faces found')
+        for b in detections:
             b = list(map(int, b))
             cv2.rectangle(self.img, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
         cv2.imwrite('data/last_detection.jpg', self.img)
@@ -210,6 +203,13 @@ class FaceDetector():
         warped_face = warp_and_crop_face(np.array(img), facial5points, crop_size=(112,112))
         return Image.fromarray(warped_face)
     
+    def process_img(self, img):
+        self.detect(img)
+        if len(self.detections) > 0:
+            self.add_data_to_buffer()     
+        else:
+            print('No faces found')   
+        
 if __name__ == '__main__':
     detector = FaceDetector(keep_top_k = 3)
     img = cv2.imread('./data/img2.jpg', cv2.IMREAD_COLOR)

@@ -3,7 +3,6 @@
 import rospy 
 from uchile_skills.robot_skill import RobotSkill
 from std_msgs.msg import String
-import math
 import recognition_node as rn
 import detection_node as dn
 

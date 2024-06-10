@@ -1,4 +1,11 @@
+# Ignore Python bytecode files
 *.pyc
-*.prototxt
+
+# Ignore __pycache__ directories
+__pycache__/
+
+*.py[cod]
+*$py.class
+
 tablet.py
 test.py
