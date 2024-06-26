@@ -14,7 +14,7 @@ from torch.nn import CrossEntropyLoss
 import os
 
 class FaceRecognizer(object):
-    def __init__(self, update_fb = True):
+    def __init__(self, update_fb = True, buffer_size = 10):
         self.conf = get_config(training = False, mobile = True)
                
         self.model = MobileFaceNet(self.conf.embedding_size).to(self.conf.device)
@@ -23,12 +23,18 @@ class FaceRecognizer(object):
         self.threshold = self.conf.threshold # Menor th es más exigente
 
         if update_fb:
-            self.targets, self.names = prepare_facebank(self.conf, self.model)
-            print('facebank updated')
+            self.update_facebank()
         else:
             self.targets, self.names = load_facebank(self.conf)
             print('facebank loaded')
+            
         print("Know names", self.names)
+        self.buffer_faces = []
+        self.buffer_size = buffer_size
+
+    def update_facebank(self):
+        self.targets, self.names = prepare_facebank(self.conf, self.model)
+        print('facebank updated')
 
     def infer(self, faces, tta=False):
         '''
@@ -56,7 +62,7 @@ class FaceRecognizer(object):
     def get_identifications(self, dist):
         identification = np.full((dist.shape[0],), np.nan)
         dist[dist > self.threshold] = np.nan
-        print(dist)
+        # print(dist)
         def indices_minimo(matriz):
             indice_minimo = np.nanargmin(matriz)
             indice_fila, indice_columna = np.unravel_index(indice_minimo, matriz.shape)
@@ -87,9 +93,50 @@ class FaceRecognizer(object):
             recog_names.append(name)
         return recog_names
 
-    
-    def filter_by_location():
-        pass
+    def filter_by_location(self, unique_names, map_names):
+        valid = []
+        for id, name in enumerate(unique_names):
+            det_img = map_names[:, :, id]
+            # Si aparece reconocida en al menos la mitad de los frames
+            if np.max(det_img) >= int(0.5 * self.buffer_size): 
+                # Calcular posición promedio ponderada
+                rows, cols = np.indices(det_img.shape)
+                total_sum = np.sum(det_img)
+                x_pos = np.sum(rows * det_img) / total_sum if total_sum > 0 else 0
+                y_pos = np.sum(cols * det_img) / total_sum if total_sum > 0 else 0
+                valid.append({'pos': [x_pos, y_pos], 'name': name})
+        return valid
+
+    def generate_map(self, unique_names, img_size):
+        map_names = np.zeros((img_size[0], img_size[1], len(unique_names)), np.uint8)
+        for id, name in enumerate(unique_names):
+            for t in self.buffer_faces:
+                for cara in t:
+                    if cara['name'] in name:
+                        pos = cara['pos']
+                        map_names[pos[1]:pos[3], pos[0]:pos[2], id] += 1
+        return map_names
+
+    def recognize_faces_by_location(self):
+        buff = self.buffer_faces
+        unique_names = []
+
+        for t in range(len(buff)):
+            faces = [item['face'] for item in buff[t]]
+            names = self.recognize_faces(faces)
+            unique_names.extend(names)
+
+            for cara in range(len(buff[t])):
+                buff[t][cara].update({'name': names[cara]})
+
+        img_size = self.buffer_faces[0][0]['face'].size
+        unique_names = list(set(unique_names))
+        print(unique_names)
+        map_names = self.generate_map(unique_names, img_size)
+        valid_identifications = self.filter_by_location(unique_names, map_names)
+        self.buffer_faces = []
+
+        return valid_identifications
 
     def get_config(self, training = True, mobile = True):
         conf = edict()
@@ -109,10 +156,6 @@ class FaceRecognizer(object):
                         trans.ToTensor(),
                         trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
                     ])
-        conf.data_mode = 'emore'
-        conf.vgg_folder = conf.data_path/'faces_vgg_112x112'
-        conf.ms1m_folder = conf.data_path/'faces_ms1m_112x112'
-        conf.emore_folder = conf.data_path/'faces_emore'
         conf.batch_size = 200 # mobilefacenet
     #--------------------Inference Config ------------------------
         conf.facebank_path = conf.data_path/'facebank'

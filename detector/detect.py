@@ -210,12 +210,15 @@ class FaceDetector():
         return Image.fromarray(warped_face)
     
     def process_img(self, img):
+        if self.is_buffer_full():
+            self.buffer_faces = []
         self.detect(img)
         if len(self.detections) > 0:
             self.add_data_to_buffer()     
         else:
             print('No faces found')   
-        
+    def prepare_buffer(self):
+        self.buffer_faces = []
 if __name__ == '__main__':
     detector = FaceDetector(keep_top_k = 3)
     img = cv2.imread('./data/img2.jpg', cv2.IMREAD_COLOR)
