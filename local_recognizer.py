@@ -14,15 +14,16 @@ if __name__ == '__main__':
     buff_size = 10
     while True:
         while len(detector.buffer_faces) < buff_size:
-            
-            # frame = cap
             ret, frame = cap.read()
             if not ret:
                 print('read error')
                 break
             detector.process_img(frame)
             print(len(detector.buffer_faces))
-            time.sleep(0.5)
+            cv2.imshow('frame', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            time.sleep(0.2)
 
         buffer = detector.buffer_faces
         recognizer = FaceRecognizer()
@@ -35,7 +36,6 @@ if __name__ == '__main__':
                 buffer[t][cara].update({'name': names[cara]})
         img_size = frame.shape
         unique_names = list(set(unique_names))
-        print(unique_names)
         map_names = np.zeros((img_size[0], img_size[1], len(unique_names)), np.uint8)
 
         # Crear map_names usando operaciones vectorizadas
@@ -49,7 +49,8 @@ if __name__ == '__main__':
         valid = []
         for id, name in enumerate(unique_names):
             det_img = map_names[:, :, id]
-            if np.max(det_img) > int(0.5 * buff_size):
+            print('np.max',np.max(det_img))
+            if np.max(det_img) >= int(0.5 * buff_size):
                 # Calcular posición promedio ponderada
                 rows, cols = np.indices(det_img.shape)
                 total_sum = np.sum(det_img)

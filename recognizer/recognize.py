@@ -17,14 +17,10 @@ class FaceRecognizer(object):
     def __init__(self, update_fb = True):
         self.conf = get_config(training = False, mobile = True)
                
-        if self.conf.use_mobilfacenet:
-            self.model = MobileFaceNet(self.conf.embedding_size).to(self.conf.device)
-            print('MobileFaceNet model generated')
-        else:
-            self.model = Backbone(self.conf.net_depth, self.conf.drop_ratio, self.conf.net_mode).to(self.conf.device)
-            print('{}_{} model generated'.format(self.conf.net_mode, self.conf.net_depth))
-        
-        self.threshold = self.conf.threshold
+        self.model = MobileFaceNet(self.conf.embedding_size).to(self.conf.device)
+        print('MobileFaceNet model generated')
+
+        self.threshold = self.conf.threshold # Menor th es más exigente
 
         if update_fb:
             self.targets, self.names = prepare_facebank(self.conf, self.model)
@@ -32,19 +28,8 @@ class FaceRecognizer(object):
         else:
             self.targets, self.names = load_facebank(self.conf)
             print('facebank loaded')
-        
-        print(self.names)
+        print("Know names", self.names)
 
-    def load_state(self, fixed_str, from_save_folder=False, model_only=False):
-        if from_save_folder:
-            save_path = self.conf.save_path
-        else:
-            save_path = self.conf.model_path       
-        self.model.load_state_dict(torch.load(save_path/'model_{}'.format(fixed_str), map_location=torch.device('cpu')))
-        if not model_only:
-            self.head.load_state_dict(torch.load(save_path/'head_{}'.format(fixed_str)))
-            self.optimizer.load_state_dict(torch.load(save_path/'optimizer_{}'.format(fixed_str)))
-    
     def infer(self, faces, tta=False):
         '''
         faces: list of PIL images
@@ -65,13 +50,13 @@ class FaceRecognizer(object):
         source_embs = torch.cat(embs)
         diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
         dist = torch.sum(torch.pow(diff, 2), dim=1) 
-        idx_identification = self.get_identifications(dist.cpu().numpy(), self.threshold)
+        idx_identification = self.get_identifications(dist.cpu().numpy())
         return idx_identification     
     
-    def get_identifications(self, dist, th):
+    def get_identifications(self, dist):
         identification = np.full((dist.shape[0],), np.nan)
-        dist[dist > th] = np.nan
-
+        dist[dist > self.threshold] = np.nan
+        print(dist)
         def indices_minimo(matriz):
             indice_minimo = np.nanargmin(matriz)
             indice_fila, indice_columna = np.unravel_index(indice_minimo, matriz.shape)
@@ -106,7 +91,7 @@ class FaceRecognizer(object):
     def filter_by_location():
         pass
 
-    def get_config(self, training = True, mobile = False):
+    def get_config(self, training = True, mobile = True):
         conf = edict()
         conf.data_path = Path('./data')
         conf.work_path = Path('work_space/')
@@ -114,10 +99,10 @@ class FaceRecognizer(object):
         conf.log_path = conf.work_path/'log'
         conf.save_path = conf.work_path/'save'
         conf.input_size = [112, 112]
-        conf.embedding_size = 512
+        conf.embedding_size = 1028 #512
         conf.use_mobilfacenet = mobile
         conf.net_depth = 50
-        conf.drop_ratio = 0.6
+        conf.drop_ratio = 0.4
         conf.net_mode = 'ir_se' # or 'ir'
         conf.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         conf.test_transform = trans.Compose([
