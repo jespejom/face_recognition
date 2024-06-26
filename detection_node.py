@@ -14,25 +14,22 @@ class face_detector_node():
 
         self.subscriber = None
         self.publisher = rospy.Publisher('/maqui/interactions/face_detection', ImageArray, queue_size=5, latch=True)
-        self.face_detector = FaceDetector(keep_top_k = 3)
+        self.detector = FaceDetector(keep_top_k = 3, buff_size = 10)
 
     def _callback(self, data):
         cv_image = wtf.imgmsg_to_cv2(data)
-        self.face_detector.detect(cv_image)
-        self.face_detector.cut_faces()
+        self.detector.process_img(cv_image)
 
-        output = ImageArray()
-        output.header.stamp = rospy.Time.now()
-        try:
-            for face in self.face_detector.faces:
-                imgmsg = wtf.cv2_to_imgmsg(face)
-                output.data.append(imgmsg)
+        if self.detector.is_buffer_full():
+            output = StringArray()
+            output.header.stamp = rospy.Time.now()
+            try:
+                output.data.append(str(self.buffer_faces))
                 print(f'Sending face image')
-            # V2: publicar solo cuando el buffer del detector este lleno
-            self.publisher.publish(output)
-        except:
-            with Exception as e:
-                print(e)
+                self.publisher.publish(output)
+            except:
+                with Exception as e:
+                    print(e)
 
     def start_callback(self):
         if self.subscriber is None:

@@ -149,11 +149,17 @@ class FaceDetector():
             return True
         else:
             return False
-        
+    
+    def is_buffer_full(self):
+        return len(self.buffer_faces) == self.buff_size
+
     def add_data_to_buffer(self):
         valid_faces = []
         assert len(self.detections) > 0, 'No detections found'
-
+        
+        if self.is_buffer_full():
+            self.buffer_faces.pop(0)
+        
         for b in self.detections:
             if b[4] < self.vis_thres:
                 continue
