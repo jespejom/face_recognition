@@ -16,14 +16,17 @@ class face_recognition_node():
         self.publisher = rospy.Publisher('/maqui/interactions/face_recognition', StringArray, queue_size=5, latch=True)
 
     def _callback(self, data):
+        detection_data = eval(data.data)
+        # cv_images = [wtf.imgmsg_to_cv2(image_msg) for image_msg in data.data]
+        self.face_recognizer.update_facebank()
+        self.face_recognizer.buffer_faces = detection_data
+        names = self.face_recognizer.recognize_faces_by_location()
 
-        cv_images = [wtf.imgmsg_to_cv2(image_msg) for image_msg in data.data]
-        names = self.face_recognizer.recognize_faces(cv_images)
         output = StringArray()
         output.header.stamp = rospy.Time.now()
         try:
             for name in names:
-                name = String()
+                name = String(name)
                 output.data.append(name)
             self.publisher.publish(output)
         except:
