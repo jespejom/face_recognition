@@ -53,9 +53,25 @@ class FaceRecognizer(object):
             else:                        
                 embs.append(self.model(conf.test_transform(img).to(conf.device).unsqueeze(0)))
 
-        source_embs = torch.cat(embs)
+        source_embs = torch.cat(embs).unsqueeze(-1)
+        # print(source_embs.shape)
+        # print(self.targets.shape)
+
+        def cosine_similarity(x1, x2):
+            #normalize
+            x1_norm = x1 / np.linalg.norm(x1)
+            x2_norm = x2 / np.linalg.norm(x2)
+            return np.dot(x1_norm, x2_norm) / (np.linalg.norm(x1_norm) * np.linalg.norm(x2_norm))
+
+        # euclidean distance
         diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
+        print('difshape',diff.shape)
         dist = torch.sum(torch.pow(diff, 2), dim=1) 
+
+        # # cosine similarity
+        # diff_cos = [cosine_similarity(source_embs.cpu().detach().numpy()[0], self.targets.cpu().detach().numpy()[i]) for i in range(self.targets.shape[0])]
+        # print('cosineshape', diff_cos.shape)
+        
         idx_identification = self.get_identifications(dist.cpu().numpy())
         return idx_identification     
     
