@@ -10,6 +10,7 @@ from detector.detect import FaceDetector
 class face_detector_node():
     def __init__(self):
         print('Nodo creado')
+        #TODO: cambiar a Bender
         self.subscriber_topic = '/maqui/camera/front/image_raw'
 
         self.subscriber = None

@@ -11,6 +11,7 @@ class face_recognition_node():
     def __init__(self):
         conf = get_config(training = False, mobile = True)
         self.face_recognizer = FaceRecognizer(conf)
+        #TODO: cambiar a Bender
         self.subscriber_topic = '/maqui/interactions/face_detection'
         self.subscriber = None
         self.publisher = rospy.Publisher('/maqui/interactions/face_recognition', StringArray, queue_size=5, latch=True)
@@ -42,8 +43,9 @@ class face_recognition_node():
             self.subscriber.unregister()
             self.subscriber = None
 
+    #TODO: comlpetar funcion
     def add_face_to_facebank(self, face, name):
-        self.face_recognizer.save_identities(names)
+        self.face_recognizer.save_identities(face, name)
 
 def main():
     rospy.init_node('face_recognition_node')

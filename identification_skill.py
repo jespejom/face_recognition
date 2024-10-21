@@ -25,7 +25,7 @@ class IdentificationSkill(RobotSkill):
         try:
             self.detector.start_callback()
             self.recognizer.start_callback()
-        except Exception, e:
+        except Exception as e:
             raise e
         return True
 
@@ -34,7 +34,7 @@ class IdentificationSkill(RobotSkill):
         try:
             self.detector.stop_callback()
             self.recognizer.stop_callback()
-        except Exception, e:
+        except Exception as e:
             raise e
         return True
        
@@ -46,10 +46,11 @@ class IdentificationSkill(RobotSkill):
         try:
             self.detector.stop_callback()
             self.recognizer.stop_callback()
-        except Exception, e:
+        except Exception as e:
             raise e
         return True
     
+    #TODO: comlpetar funcion 
     def save_face(self, face, name):
         # Falta implementar codigo que interactue con la conversación 
         # y pueda entregar a este metodo el nombre (si corresponde) 
