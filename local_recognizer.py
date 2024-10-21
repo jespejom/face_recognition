@@ -23,6 +23,10 @@ if __name__ == '__main__':
                 break
             detector.process_img(frame)
             cv2.imshow('frame', frame)
+
+            # img = cv2.imread('./data/img2.jpg', cv2.IMREAD_COLOR)
+            # detector.process_img(img)
+            # cv2.imshow('frame', img)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             time.sleep(0.2)
@@ -32,3 +36,20 @@ if __name__ == '__main__':
         recognizer.buffer_faces = buffer
         names = recognizer.recognize_faces_by_location()
         print('names', names)
+        if len(names) == 0:
+            print('No faces found')
+        else:
+            for name in names:
+                # add name to facebank
+                print(buffer)
+                if name['name'] == 'Unknown':
+                    new_name = input('Ingrese nombre de la persona: ')
+                    for face in buffer:
+                        #check if is an empyt list
+                        if face == []:
+                            continue
+                        else:
+                            for f_i in face:
+                                if f_i['name'] == 'Unknown':
+                                    recognizer.save_identities(face[0]['face'], new_name)
+                    # recognizer.save_identities(buffer[0][0], new_name)

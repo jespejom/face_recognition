@@ -46,15 +46,18 @@ def prepare_facebank(conf, model, tta = True):
                 else:
                     try:
                         img = Image.open(file)
-                        if file.suffix == '.png':
+                        if file.suffix == '.png' or '.png' in str(file):
                             new_file = file.replace('.png', '.jpg')
                             img.save(new_file)
                             img = Image.open(new_file)
                     except:
+                        print(f'No se pudo abrir la imagen {file}')
                         continue
                     
                     if img.size != (112, 112):
-                        print('Imagen del facebank de tamaño incorrecto, se tiene tamaño {img.size}')
+                        print(f'Imagen del facebank de tamaño incorrecto, se tiene tamaño {img.size}, se redimensionará a 112x112')
+                        img = img.resize((112,112))
+                        # img = img.thumbnail((112,112), Image.Resampling.LANCZOS)
                         #img = mtcnn.align(img)
                     with torch.no_grad():
                         if tta:

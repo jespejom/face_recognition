@@ -36,7 +36,8 @@ class FaceRecognizer(object):
         self.targets, self.names = prepare_facebank(self.conf, self.model)
         print('facebank updated')
 
-    def infer(self, faces, tta=False):
+    # def infer(self, faces, tta=False):
+    def infer(self, faces, tta=True):
         '''
         faces: list of PIL images
         tta: test time augmentation
@@ -55,7 +56,11 @@ class FaceRecognizer(object):
 
         source_embs = torch.cat(embs).unsqueeze(-1)
         # print(source_embs.shape)
+        # print(source_embs.unsqueeze(-1).shape)
         # print(self.targets.shape)
+        # print(self.targets.transpose(1, 0).shape)
+        # print(self.targets.transpose(1, 0).unsqueeze(0).shape)
+        
 
         def cosine_similarity(x1, x2):
             #normalize
@@ -64,15 +69,18 @@ class FaceRecognizer(object):
             return np.dot(x1_norm, x2_norm) / (np.linalg.norm(x1_norm) * np.linalg.norm(x2_norm))
 
         # euclidean distance
-        diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
-        print('difshape',diff.shape)
+        # diff = source_embs.unsqueeze(-1) - self.targets.transpose(1, 0).unsqueeze(0)
+        diff = source_embs - self.targets.transpose(1, 0)
+        # print('difshape',diff.shape)
         dist = torch.sum(torch.pow(diff, 2), dim=1) 
+        # print('distshape', dist.shape)
 
         # # cosine similarity
         # diff_cos = [cosine_similarity(source_embs.cpu().detach().numpy()[0], self.targets.cpu().detach().numpy()[i]) for i in range(self.targets.shape[0])]
         # print('cosineshape', diff_cos.shape)
         
         idx_identification = self.get_identifications(dist.cpu().numpy())
+        # print('idx_identification',idx_identification)
         return idx_identification     
     
     def get_identifications(self, dist):
@@ -102,18 +110,27 @@ class FaceRecognizer(object):
         if len(faces) == 0:
             print('No faces detected')
             return recog_names
-        
+                
         results = self.infer(faces)
+        # print('names ,,,,,,,,,,,, ',self.names)
         for idx, _ in enumerate(results):
             name = self.names[int(results[idx]) + 1]
+            # print("recog name",name)
             recog_names.append(name)
         return recog_names
 
     def filter_by_location(self, unique_names, map_names):
         valid = []
+        # print('unique_names',len(unique_names))
         for id, name in enumerate(unique_names):
             det_img = map_names[:, :, id]
+            # det_img = map_names[:,  id]
             # Si aparece reconocida en al menos la mitad de los frames
+            # print('det_img',det_img)
+            # print(id, name)
+            # print('maximo',np.max(det_img))
+            # print(int(0.5 * self.buffer_size))
+            
             if np.max(det_img) >= int(0.5 * self.buffer_size): 
                 # Calcular posición promedio ponderada
                 rows, cols = np.indices(det_img.shape)
@@ -125,12 +142,27 @@ class FaceRecognizer(object):
 
     def generate_map(self, unique_names, img_size):
         map_names = np.zeros((img_size[0], img_size[1], len(unique_names)), np.uint8)
+        # cahnge map for buffer size
+        # map_names = np.zeros((len(self.buffer_faces), len(unique_names)), np.uint8)
         for id, name in enumerate(unique_names):
+            # for buff_id, t in enumerate(self.buffer_faces):
             for t in self.buffer_faces:
                 for cara in t:
+                    # print('cara',cara)
+                    # print('cara',cara['name'])
+                    # print('name',name)
+                    # print('cara',type(cara))
+                    # print('cara',type(cara['name']))
+                    # print('name',type(name))
                     if cara['name'] in name:
                         pos = cara['pos']
-                        map_names[pos[1]:pos[3], pos[0]:pos[2], id] += 1
+                        # print(map_names[pos[1]:pos[3], pos[0]:pos[2], id])
+                        map_names[0:112, 0:112, id] += 1
+                        # print(map_names[pos[1]:pos[3], pos[0]:pos[2], id])
+                        # print(pos[1],pos[3], pos[0],pos[2])
+                        # xd
+                        # map_names[buff_id, id] += 1
+                # xd
         return map_names
 
     def recognize_faces_by_location(self):
@@ -145,11 +177,25 @@ class FaceRecognizer(object):
             for cara in range(len(buff[t])):
                 buff[t][cara].update({'name': names[cara]})
 
-        img_size = self.buffer_faces[0][0]['face'].size
+        try:
+            # TODO: hay un momento donde detecta algo, pero no lo considera ni unknown ni 'no faces detected'
+            img_size = (112, 112)
+            # img_size = self.buffer_faces[0][0]['face'].size
+            # print(img_size)
+            # print(unique_names)
+        except:
+            print(self.buffer_faces)
+            print(unique_names)
+            raise ValueError('No faces detected')
+            
+            
         unique_names = list(set(unique_names))
         print(unique_names)
         map_names = self.generate_map(unique_names, img_size)
+        # print(map_names)
         valid_identifications = self.filter_by_location(unique_names, map_names)
+        # print(valid_identifications)
+        
         self.buffer_faces = []
 
         return valid_identifications
@@ -181,16 +227,45 @@ class FaceRecognizer(object):
         return conf
 
     def save_identities(self, face, name: str):
-        path_folder = self.conf.facebank_path+'/'+name
+        # path_folder = self.conf.facebank_path+'/'+name
+        path_folder = self.conf.facebank_path / name
         if not os.path.exists(path_folder):
             os.makedirs(path_folder)
-        if not isinstance(face, np.ndarray):
-            face = face.cpu().detach().numpy()
+        # if not isinstance(face, np.ndarray):
+        #     print(face)
+        #     face = face.cpu().detach().numpy()
         
         n_files = len([path for path in os.listdir(path_folder) if '.jpg' in path])
-        path_img = path_folder + '/' + name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
+        if n_files < 30:
+            # path_img = path_folder / name +'_'+ str(n_files + 1).zfill(3) + '.jpg'
+            name_n = name +'_'+ str(n_files + 1).zfill(n_files//10) + '.jpg'
+            path_img = path_folder / name_n
+            
+            # 
+            # face.show()
+            import cv2
+            # show rgb image
+            # cv2.imshow('BGR a RGB image', cv2.cvtColor(np.array(face), cv2.COLOR_BGR2RGB))
+            # # show gray image
+            # cv2.imshow('Gray image BGR a Gray', cv2.cvtColor(np.array(face), cv2.COLOR_BGR2GRAY))
+            # # show gray image
+            # cv2.imshow('Gray image RGB a GRAY', cv2.cvtColor(np.array(face), cv2.COLOR_RGB2GRAY))
+            # show bgr image
+            # cv2.imshow('BGR image', np.array(face))
+            # show rgb image
+            # cv2.imshow('RGB a BGR', cv2.cvtColor(np.array(face), cv2.COLOR_RGB2BGR))
+            # cv2.waitKey(0)
+            # xd
+            # np.save(path_img, face)
+            open_cv_img = np.array(face)
+            # Convert RGB to BGR
+            open_cv_img = open_cv_img[:, :, ::-1].copy()
+            # cv2.imwrite(str(path_img), open_cv_img)
+            face_cp = Image.fromarray(open_cv_img)
+            face_cp.save(path_img, 'JPEG', icc_profile = face.info.get('icc_profile'))
+        else:
+            print('Se ha alcanzado el límite de imágenes para esta persona')
         
-        np.save(path_img, face)
         # update facebank
         self.targets, self.names = prepare_facebank(self.conf, self.model)
         
@@ -198,7 +273,7 @@ if __name__ == '__main__':
     conf = get_config(training = False, mobile = True)
     recognizer = FaceRecognizer(conf)
     img = Image.open('./data/facebank/img2.jpg')
-    img = Image.open('C:/Users/lesli/OneDrive/Documents/GitHub/face_memory/data/facebank/img2.jpg')
+    # img = Image.open('C:/Users/lesli/OneDrive/Documents/GitHub/face_memory/data/facebank/img2.jpg')
     if img is None:
         print('read error')
         exit(1)
